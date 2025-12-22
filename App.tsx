@@ -203,11 +203,35 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        
+        // Robust Merging for Education Array (Must have 4 items for the fixed UI slots)
+        let safeEducation = Array.isArray(parsed.education) ? parsed.education : INITIAL_DATA.education;
+        if (safeEducation.length < 4) {
+             safeEducation = [
+                 ...safeEducation,
+                 ...INITIAL_DATA.education.slice(safeEducation.length)
+             ];
+        }
+        // Ensure each item has correct structure
+        safeEducation = safeEducation.map((item: any, idx: number) => ({
+             ...INITIAL_DATA.education[idx], // Defaults from initial
+             ...item // Overwrite with saved
+        }));
+
         // Ensure date is updated to today's date
-        const updatedData = { ...INITIAL_DATA, ...parsed, date: currentDate };
+        const updatedData = { 
+            ...INITIAL_DATA, 
+            ...parsed, 
+            education: safeEducation,
+            date: currentDate 
+        };
         setData(updatedData);
         setHistory([ updatedData ]); 
-      } catch (e) { console.error("Load error", e); }
+      } catch (e) { 
+          console.error("Load error", e); 
+          // If load fails, fallback to INITIAL_DATA
+          setData(prev => ({...prev, date: currentDate}));
+      }
     } else {
         // Force update date even if using initial data
         setData(prev => ({...prev, date: currentDate}));
