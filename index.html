@@ -460,6 +460,10 @@
         .hidden-row { display: none !important; }
         .hidden { display: none !important; }
     </style>
+    <!-- Polyfill for process to prevent crashes in browser -->
+    <script>
+      window.process = window.process || { env: { NODE_ENV: 'production' } };
+    </script>
     <script type="module" src="/index.tsx"></script>
 <script type="importmap">
 {
