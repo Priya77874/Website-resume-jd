@@ -13,8 +13,6 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Polyfill process.env for libs that might expect it to exist
-      'process.env': {},
       'process.env.API_KEY': JSON.stringify(env.API_KEY || "AIzaSyAB-fQNhfpPCdaQ4PREgNvN2CQDF9yIkbE")
     }
   }
