@@ -1,7 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Netlify Function handler (V2 standard syntax or V1 default export)
-// This file must be in netlify/functions/gemini.mjs
 export default async (req, context) => {
   // Only allow POST requests
   if (req.method !== "POST") {
@@ -9,7 +7,6 @@ export default async (req, context) => {
   }
 
   try {
-    // 1. Get the API Key securely from Netlify Environment Variables
     const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
@@ -20,39 +17,67 @@ export default async (req, context) => {
       });
     }
 
-    // 2. Parse the incoming request body
     const body = await req.json();
-    const { currentContent, instruction } = body;
+    const { mode, currentContent, instruction, prompt, image } = body;
+    
+    const ai = new GoogleGenAI({ apiKey });
+    let contentsPayload;
 
-    if (!currentContent || !instruction) {
-      return new Response(JSON.stringify({ error: "Missing content or instruction." }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      });
+    if (mode === 'general') {
+        if (!prompt) {
+            return new Response(JSON.stringify({ error: "Missing prompt." }), { status: 400 });
+        }
+
+        const parts = [];
+        
+        // Add Image if present (Multimodal)
+        if (image) {
+            // Expecting data:image/xyz;base64,....
+            const match = image.match(/^data:(.*?);base64,(.*)$/);
+            if (match) {
+                parts.push({
+                    inlineData: {
+                        mimeType: match[1],
+                        data: match[2]
+                    }
+                });
+            }
+        }
+
+        // Add Text Prompt
+        parts.push({ text: prompt });
+        
+        contentsPayload = { parts };
+
+    } else {
+        // Default: Rewrite Mode
+        if (!currentContent || !instruction) {
+            return new Response(JSON.stringify({ error: "Missing content or instruction." }), { status: 400 });
+        }
+
+        const systemPrompt = `
+          Role: Professional Resume Editor.
+          Task: Rewrite the following resume content based on this instruction: "${instruction}".
+          
+          Content to Rewrite:
+          "${currentContent}"
+          
+          Constraint: Return ONLY the improved HTML code suitable for insertion into a <div> or <ul>. Do not add markdown blocks like \`\`\`html. Keep formatting simple.
+        `;
+        
+        contentsPayload = systemPrompt;
     }
 
-    // 3. Initialize the Gemini API securely on the server side
-    const ai = new GoogleGenAI({ apiKey });
-
-    // 4. Construct the prompt
-    const prompt = `
-      Role: Professional Resume Editor.
-      Task: Rewrite the following resume content based on this instruction: "${instruction}".
-      
-      Content to Rewrite:
-      "${currentContent}"
-      
-      Constraint: Return ONLY the improved HTML code suitable for insertion into a <div> or <ul>. Do not add markdown blocks like \`\`\`html. Keep formatting simple.
-    `;
-
-    // 5. Call the model
+    // Call the model
+    // gemini-3-flash-preview supports both text and multimodal inputs efficiently
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Or 'gemini-2.5-flash-latest'
-      contents: prompt,
+      model: 'gemini-3-flash-preview', 
+      contents: contentsPayload,
     });
 
-    // 6. Clean and return the result
     let result = response.text || '';
+    
+    // Clean up markdown code blocks if present (common in text responses)
     result = result.replace(/```html/g, '').replace(/```/g, '').trim();
 
     return new Response(JSON.stringify({ result }), {
@@ -62,7 +87,7 @@ export default async (req, context) => {
 
   } catch (error) {
     console.error("Gemini Function Error:", error);
-    return new Response(JSON.stringify({ error: "Failed to generate content." }), {
+    return new Response(JSON.stringify({ error: "Failed to process AI request." }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });

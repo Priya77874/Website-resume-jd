@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LoginScreen } from './components/LoginScreen';
 import { Editable } from './components/Editable';
-import { rewriteContent } from './services/geminiService';
+import { rewriteContent, askGeneralAi } from './services/geminiService';
 import { ResumeData, ThemeColors, GuestUser, GuestPermissions, CertLinks } from './types';
 
 // Declare globals for CDN libs
@@ -159,10 +159,17 @@ const App: React.FC = () => {
   const [revertData, setRevertData] = useState<ResumeData | null>(null);
   
   // AI State
+  const [aiMode, setAiMode] = useState<'rewrite' | 'general'>('rewrite');
+  // AI Rewrite State
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiTarget, setAiTarget] = useState<keyof ResumeData>('objective');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState('');
+  // AI General State
+  const [genPrompt, setGenPrompt] = useState('');
+  const [genImage, setGenImage] = useState<string | null>(null);
+  const [genResult, setGenResult] = useState('');
+  const genFileRef = useRef<HTMLInputElement>(null);
 
   // Details Modal State
   const [dmTab, setDmTab] = useState('work');
@@ -554,6 +561,28 @@ const App: React.FC = () => {
       setAiResult('');
   };
 
+  // General AI Handlers
+  const handleGenAiSubmit = async () => {
+      if (!genPrompt.trim()) return;
+      setAiLoading(true);
+      try {
+          const result = await askGeneralAi(genPrompt, genImage);
+          setGenResult(result);
+      } catch (e) {
+          alert(e instanceof Error ? e.message : "AI Error");
+      } finally {
+          setAiLoading(false);
+      }
+  };
+
+  const handleGenImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          const reader = new FileReader();
+          reader.onload = (ev) => setGenImage(ev.target?.result as string);
+          reader.readAsDataURL(e.target.files[0]);
+      }
+  };
+
   // Contact Handlers
   const handlePhoneClick = () => {
     if (isEditing) return;
@@ -753,13 +782,26 @@ const App: React.FC = () => {
                   const data = imgData.data;
                   let opaqueCount = 0;
                   
-                  // Iterate over every pixel to remove white/light background
+                  // Contrast enhancement factor to make ink darker and paper whiter before thresholding
+                  const contrast = 1.2; // Increase contrast by 20%
+                  const intercept = 128 * (1 - contrast);
+
                   for (let i = 0; i < data.length; i += 4) {
-                      const r = data[i];
-                      const g = data[i + 1];
-                      const b = data[i + 2];
+                      let r = data[i];
+                      let g = data[i + 1];
+                      let b = data[i + 2];
                       
-                      // Calculate Perceived Brightness (Luminance)
+                      // Apply contrast
+                      r = r * contrast + intercept;
+                      g = g * contrast + intercept;
+                      b = b * contrast + intercept;
+
+                      // Clamp values
+                      r = Math.min(255, Math.max(0, r));
+                      g = Math.min(255, Math.max(0, g));
+                      b = Math.min(255, Math.max(0, b));
+
+                      // Calculate luminance (perceived brightness)
                       // Formula: 0.299*R + 0.587*G + 0.114*B
                       const brightness = (r * 299 + g * 587 + b * 114) / 1000;
                       
@@ -768,8 +810,7 @@ const App: React.FC = () => {
                       if (brightness > 150) {
                           data[i + 3] = 0; // Set Alpha to 0 (Transparent)
                       } else {
-                          // Pixel is dark (ink), keep it opaque
-                          data[i + 3] = 255;
+                          data[i + 3] = 255; // Set Alpha to 255 (Opaque) - Make ink solid
                           opaqueCount++;
                       }
                   }
@@ -1234,6 +1275,8 @@ const App: React.FC = () => {
       <input type="file" className="hidden" ref={fileInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'profile')} />
       <input type="file" className="hidden" ref={sigInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'signature')} />
       <input type="file" className="hidden" ref={certUploadRef} accept=".pdf,image/*" onChange={handleCertUpload} />
+      {/* Hidden Input for General AI Image Upload */}
+      <input type="file" className="hidden" ref={genFileRef} accept="image/*" onChange={handleGenImageUpload} />
 
       {/* MODALS */}
       
@@ -1528,117 +1571,92 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Contact Actions Modal */}
-      <div className={`modal-overlay ${contactModal ? 'open' : ''}`}>
-          <div className="modal-box" style={{width: '320px'}}>
-              <h3 style={{marginBottom:'15px'}}>{contactModal?.title}</h3>
-              <ul className="action-list">
-                  {contactModal?.actions.map((act, i) => (
-                      <li key={i}>
-                          <button className="action-btn" onClick={act.fn}>
-                              <i className={act.icon}></i> {act.label}
-                          </button>
-                      </li>
-                  ))}
-              </ul>
-              <div className="modal-actions" style={{marginTop:'10px'}}>
-                  <button className="btn btn-cancel" onClick={() => setContactModal(null)}>Cancel</button>
-              </div>
-          </div>
-      </div>
-
-      {/* Details Editor Modal */}
-      <div className={`modal-overlay ${activeModal === 'details' ? 'open' : ''}`}>
-          <div className="modal-box" style={{width: '600px'}}>
-              <h3 style={{marginBottom:'10px', color:'#2c3e50'}}>Edit Points</h3>
-              
-              <div className="dm-tabs">
-                  {['work', 'tech', 'soft', 'lang', 'hobby'].map(t => {
-                      const icons = {
-                          work: 'fa-briefcase',
-                          tech: 'fa-code',
-                          soft: 'fa-comments',
-                          lang: 'fa-language',
-                          hobby: 'fa-palette'
-                      };
-                      const label = t === 'work' ? 'Work Experience' : t === 'tech' ? 'Tech Skills' : t === 'soft' ? 'Soft Skills' : t === 'lang' ? 'Languages' : 'Hobbies';
-                      return (
-                          <div key={t} className={`dm-tab ${dmTab === t ? 'active' : ''}`} onClick={() => switchDmTab(t)}>
-                              <i className={`fa-solid ${icons[t as keyof typeof icons]}`} style={{fontSize:'12px'}}></i> {label}
-                          </div>
-                      );
-                  })}
-              </div>
-
-              <div className="dm-content">
-                  {localDetails.map((item, i) => (
-                      <div className="dm-row" key={i}>
-                          {dmTab === 'work' ? (
-                              <>
-                                <input type="text" className="dm-input" placeholder="Job Title" value={item.title || ''} onChange={e => {
-                                    const newData = [...localDetails]; newData[i].title = e.target.value; setLocalDetails(newData);
-                                }} />
-                                <input type="text" className="dm-input" placeholder="Company" value={item.company || ''} onChange={e => {
-                                    const newData = [...localDetails]; newData[i].company = e.target.value; setLocalDetails(newData);
-                                }} />
-                              </>
-                          ) : (
-                              <input type="text" className="dm-input" value={item as string} onChange={e => {
-                                  const newData = [...localDetails]; newData[i] = e.target.value; setLocalDetails(newData);
-                              }} />
-                          )}
-                          <button className="dm-btn-del" onClick={() => {
-                              const newData = [...localDetails]; newData.splice(i, 1); setLocalDetails(newData);
-                          }}><i className="fa-solid fa-trash"></i></button>
-                      </div>
-                  ))}
-              </div>
-
-              <div className="dm-controls">
-                  <span style={{fontSize:'13px', fontWeight:600}}>Bulk Add:</span>
-                  <select className="dm-select" value={rowsToAdd} onChange={e => setRowsToAdd(parseInt(e.target.value))}>
-                      <option value="1">1</option><option value="3">3</option><option value="5">5</option>
-                  </select>
-                  <button className="btn btn-blue" style={{padding:'6px 10px'}} onClick={addDmRows}><i className="fa-solid fa-plus"></i> Add</button>
-              </div>
-
-              <div className="modal-actions" style={{marginTop:'20px'}}>
-                  <button className="btn btn-cancel" onClick={() => setActiveModal(null)}>Cancel</button>
-                  <button className="btn btn-save" onClick={saveDetails}>Save Changes</button>
-              </div>
-          </div>
-      </div>
-      
       {/* AI Modal */}
       <div className={`modal-overlay ${activeModal === 'ai' ? 'open' : ''}`}>
           <div className="modal-box" style={{width: '600px'}}>
-              <h3 style={{marginBottom: '20px', color: '#6366f1'}}><i className="fa-solid fa-robot"></i> AI Resume Assistant</h3>
-              <div style={{width:'100%', marginTop:'10px', borderTop:'1px solid #eee', paddingTop:'15px'}}>
-                   <div style={{marginBottom:'20px'}}>
-                        <label style={{display:'block', marginBottom:'8px', fontSize:'13px', fontWeight:600}}>Target Section</label>
-                        <select className="login-input" style={{padding:'10px'}} value={aiTarget as string} onChange={(e) => setAiTarget(e.target.value as any)}>
-                            <option value="objective">Career Objective</option>
-                            <option value="techSkills">Technical Skills</option>
-                            <option value="softSkills">Soft Skills</option>
-                            <option value="declaration">Declaration</option>
-                        </select>
-                   </div>
-                   <div style={{marginBottom:'20px'}}>
-                        <label style={{display:'block', marginBottom:'8px', fontSize:'13px', fontWeight:600}}>Instruction</label>
-                        <textarea className="login-input" rows={3} placeholder="Make it more professional..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}></textarea>
-                   </div>
-                   <button className="btn btn-ai" style={{width:'100%', justifyContent:'center'}} onClick={handleAiImprove} disabled={aiLoading}>
-                       <i className="fa-solid fa-bolt"></i> {aiLoading ? 'Thinking...' : 'Generate Improvement'}
-                   </button>
+              <h3 style={{marginBottom: '15px', color: '#6366f1'}}><i className="fa-solid fa-robot"></i> AI Resume Assistant</h3>
+              
+              <div className="dm-tabs">
+                  <div className={`dm-tab ${aiMode === 'rewrite' ? 'active' : ''}`} onClick={() => setAiMode('rewrite')}>
+                      <i className="fa-solid fa-pen-fancy"></i> Resume Improver
+                  </div>
+                  <div className={`dm-tab ${aiMode === 'general' ? 'active' : ''}`} onClick={() => setAiMode('general')}>
+                      <i className="fa-solid fa-comments"></i> General Assistant
+                  </div>
+              </div>
 
-                   {aiResult && (
-                       <div style={{marginTop:'20px', background:'#f8fafc', padding:'15px', borderRadius:'10px', border:'1px solid #e2e8f0'}}>
-                           <label style={{fontWeight:600, color:'#475569', marginBottom:'5px', display:'block'}}>AI Suggestion:</label>
-                           <div className="editable" style={{border:'1px solid #ddd', padding:'10px', borderRadius:'8px', background:'#fff', minHeight:'60px', fontSize:'13px', marginBottom:'10px'}} dangerouslySetInnerHTML={{__html: aiResult}}></div>
-                           <div className="modal-actions" style={{justifyContent: 'flex-end', marginTop:0}}>
-                               <button className="btn btn-save" onClick={applyAiResult}>Apply to Resume</button>
+              <div style={{width:'100%', marginTop:'10px', paddingTop:'5px'}}>
+                   {aiMode === 'rewrite' ? (
+                       <>
+                           <div style={{marginBottom:'20px'}}>
+                                <label style={{display:'block', marginBottom:'8px', fontSize:'13px', fontWeight:600}}>Target Section</label>
+                                <select className="login-input" style={{padding:'10px'}} value={aiTarget as string} onChange={(e) => setAiTarget(e.target.value as any)}>
+                                    <option value="objective">Career Objective</option>
+                                    <option value="techSkills">Technical Skills</option>
+                                    <option value="softSkills">Soft Skills</option>
+                                    <option value="declaration">Declaration</option>
+                                </select>
                            </div>
-                       </div>
+                           <div style={{marginBottom:'20px'}}>
+                                <label style={{display:'block', marginBottom:'8px', fontSize:'13px', fontWeight:600}}>Instruction</label>
+                                <textarea className="login-input" rows={3} placeholder="Make it more professional..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)}></textarea>
+                           </div>
+                           <button className="btn btn-ai" style={{width:'100%', justifyContent:'center'}} onClick={handleAiImprove} disabled={aiLoading}>
+                               <i className="fa-solid fa-bolt"></i> {aiLoading ? 'Thinking...' : 'Generate Improvement'}
+                           </button>
+
+                           {aiResult && (
+                               <div style={{marginTop:'20px', background:'#f8fafc', padding:'15px', borderRadius:'10px', border:'1px solid #e2e8f0'}}>
+                                   <label style={{fontWeight:600, color:'#475569', marginBottom:'5px', display:'block'}}>AI Suggestion:</label>
+                                   <div className="editable" style={{border:'1px solid #ddd', padding:'10px', borderRadius:'8px', background:'#fff', minHeight:'60px', fontSize:'13px', marginBottom:'10px'}} dangerouslySetInnerHTML={{__html: aiResult}}></div>
+                                   <div className="modal-actions" style={{justifyContent: 'flex-end', marginTop:0}}>
+                                       <button className="btn btn-save" onClick={applyAiResult}>Apply to Resume</button>
+                                   </div>
+                               </div>
+                           )}
+                       </>
+                   ) : (
+                       <>
+                           <div style={{marginBottom:'15px'}}>
+                               <label style={{display:'block', marginBottom:'8px', fontSize:'13px', fontWeight:600}}>Your Question</label>
+                               <textarea 
+                                   className="login-input" 
+                                   rows={3} 
+                                   placeholder="Ask me anything or upload an image to analyze..." 
+                                   value={genPrompt} 
+                                   onChange={e => setGenPrompt(e.target.value)}
+                               ></textarea>
+                           </div>
+                           
+                           <div style={{marginBottom:'15px', display:'flex', alignItems:'center', gap:'10px'}}>
+                               <button className="btn btn-purple" onClick={() => genFileRef.current?.click()}>
+                                   <i className="fa-solid fa-image"></i> {genImage ? 'Change Image' : 'Upload Image'}
+                               </button>
+                               {genImage && <span style={{fontSize:'12px', color:'#16a34a'}}>Image Selected <i className="fa-solid fa-check"></i></span>}
+                               {genImage && (
+                                   <button className="btn btn-remove" style={{padding:'6px 10px'}} onClick={() => { setGenImage(null); if(genFileRef.current) genFileRef.current.value=''; }}>
+                                       <i className="fa-solid fa-trash"></i>
+                                   </button>
+                               )}
+                           </div>
+                           
+                           {genImage && (
+                               <div style={{marginBottom:'15px', maxHeight:'150px', overflow:'hidden', borderRadius:'8px', border:'1px solid #ddd'}}>
+                                   <img src={genImage} alt="Preview" style={{width:'100%', objectFit:'contain', maxHeight:'150px'}} />
+                               </div>
+                           )}
+
+                           <button className="btn btn-ai" style={{width:'100%', justifyContent:'center'}} onClick={handleGenAiSubmit} disabled={aiLoading}>
+                               <i className="fa-solid fa-paper-plane"></i> {aiLoading ? 'Processing...' : 'Send Query'}
+                           </button>
+
+                           {genResult && (
+                               <div style={{marginTop:'20px', background:'#f8fafc', padding:'15px', borderRadius:'10px', border:'1px solid #e2e8f0'}}>
+                                   <label style={{fontWeight:600, color:'#475569', marginBottom:'5px', display:'block'}}>Response:</label>
+                                   <div className="editable" style={{border:'1px solid #ddd', padding:'10px', borderRadius:'8px', background:'#fff', minHeight:'60px', fontSize:'13px', maxHeight:'300px', overflowY:'auto', whiteSpace:'pre-wrap'}}>{genResult}</div>
+                               </div>
+                           )}
+                       </>
                    )}
               </div>
               <div className="modal-actions" style={{marginTop:'20px'}}>
@@ -1921,6 +1939,8 @@ const App: React.FC = () => {
       <input type="file" className="hidden" ref={fileInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'profile')} />
       <input type="file" className="hidden" ref={sigInputRef} accept="image/*" onChange={(e) => handleImageUpload(e, 'signature')} />
       <input type="file" className="hidden" ref={certUploadRef} accept=".pdf,image/*" onChange={handleCertUpload} />
+      {/* Hidden Input for General AI Image Upload */}
+      <input type="file" className="hidden" ref={genFileRef} accept="image/*" onChange={handleGenImageUpload} />
     </div>
   );
 };
