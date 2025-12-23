@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || "AIzaSyAB-fQNhfpPCdaQ4PREgNvN2CQDF9yIkbE")
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || "")
     }
   }
 })

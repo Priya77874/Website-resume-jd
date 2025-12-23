@@ -77,7 +77,19 @@ const PRESET_THEMES = [
   
   // Row 8
   { name: 'Midnight Cyan', sidebarBg: '#2B1E47', accentBlue: '#46C9FF', textColor: '#333333' },
-  { name: 'Slate Yellow', sidebarBg: '#445E93', accentBlue: '#FFEFA1', textColor: '#333333' }
+  { name: 'Slate Yellow', sidebarBg: '#445E93', accentBlue: '#FFEFA1', textColor: '#333333' },
+
+  // Row 9 (New)
+  { name: 'Noir Red', sidebarBg: '#1a1a1a', accentBlue: '#e63946', textColor: '#333333' },
+  { name: 'Slate Teal', sidebarBg: '#343a40', accentBlue: '#20c997', textColor: '#333333' },
+  { name: 'Forest Lime', sidebarBg: '#14532d', accentBlue: '#84cc16', textColor: '#333333' },
+  { name: 'Purple Amber', sidebarBg: '#581c87', accentBlue: '#fbbf24', textColor: '#333333' },
+  
+  // Row 10 (New)
+  { name: 'Cobalt Cyan', sidebarBg: '#1e3a8a', accentBlue: '#06b6d4', textColor: '#333333' },
+  { name: 'Mocha Rose', sidebarBg: '#4a3b32', accentBlue: '#fda4af', textColor: '#333333' },
+  { name: 'Granite Orange', sidebarBg: '#262626', accentBlue: '#f97316', textColor: '#333333' },
+  { name: 'Deep Emerald', sidebarBg: '#064e3b', accentBlue: '#34d399', textColor: '#333333' }
 ];
 
 const INITIAL_DATA: ResumeData = {
@@ -757,7 +769,7 @@ const App: React.FC = () => {
       
       setAdminSecStep('update');
       // Load current API key
-      const storedKey = localStorage.getItem('rajAiApiKey') || "AIzaSyAB-fQNhfpPCdaQ4PREgNvN2CQDF9yIkbE";
+      const storedKey = localStorage.getItem('rajAiApiKey') || "";
       setNewApiKey(storedKey);
   };
 
@@ -905,6 +917,10 @@ const App: React.FC = () => {
                     }}>
                         <i className="fa-solid fa-file-pen"></i> Fill Details
                     </button>
+                    <button className="btn btn-purple" onClick={openDetailsModal}><i className="fa-solid fa-list-check"></i> Edit Points</button>
+                    <button className="btn btn-ai" onClick={() => setActiveModal('ai')}>
+                        <i className="fa-solid fa-wand-magic-sparkles"></i> AI Assistant
+                    </button>
                 </>
             )}
 
@@ -915,17 +931,12 @@ const App: React.FC = () => {
                 <i className="fa-solid fa-rotate-right"></i> Redo
             </button>
 
-            <button className="btn btn-ai" onClick={() => setActiveModal('ai')}>
-                <i className="fa-solid fa-wand-magic-sparkles"></i> AI Assistant
-            </button>
-
             <button className="btn btn-purple" onClick={() => setActiveModal('colors')}>
                 <i className="fa-solid fa-palette"></i> Theme Colors
             </button>
             
             {authMode === 'admin' && (
                 <>
-                    <button className="btn btn-purple" onClick={openDetailsModal}><i className="fa-solid fa-list-check"></i> Edit Points</button>
                     <button className="btn btn-cert" onClick={() => { setCertAuthStep('login'); setCertCaptchaVal(generateCaptcha()); setActiveModal('cert'); }}><i className="fa-solid fa-certificate"></i> Manage Certificates</button>
                     <button className="btn btn-guest-mgr" onClick={() => { setGuestList(JSON.parse(localStorage.getItem('rajResumeGuests')||'[]')); setActiveModal('guest-mgr'); }}><i className="fa-solid fa-user-clock"></i> Guest Manager</button>
                     <button className="btn btn-security" onClick={() => { setAdminSecStep('verify'); setCaptchaVal(generateCaptcha()); setActiveModal('admin-sec'); }}><i className="fa-solid fa-lock"></i> Admin Security</button>
