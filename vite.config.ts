@@ -12,8 +12,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [react()],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || "")
-    }
+    // Removed process.env.API_KEY definition to prevent leaking credentials to the client bundle.
+    // The API key is now handled securely server-side via Netlify Functions.
   }
 })

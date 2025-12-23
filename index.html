@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Force Desktop View on Mobile -->
-    <meta name="viewport" content="width=1280">
+    <!-- Mobile Responsiveness enabled -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Raj Resume Builder - Secure Login</title>
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9MTAwIiByeD0iMjAiIGZpbGw9IiMxZTNhOGEiLz48cGF0aCBkPSJNMzAgMjBoNDBhMjAgMjAgMCAwIDEgMjAgMjB2NDBhMjAgMjAgMCAwIDEtMjAgMjBIMzBhMjAgMjAgMCAwIDEtMjAtMjBWMzBhMjAgMjAgMCAwIDEgMjAtMjB6IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjQiIG9wYWNpdHk9IjAuMiIvPjx0ZXh0IHg9IjUwIiB5PSI3MiIgZm9udC1zaXplPSI2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCI+UjwvdGV4dD48L3N2Zz4=">
@@ -288,8 +288,9 @@
         #viewport { 
             margin-top: 60px;
             width: 100%; 
-            display: block; 
-            overflow: visible; 
+            display: flex;
+            justify-content: center;
+            overflow: hidden; 
             padding-bottom: 50px;
         }
         #resume-container { 
@@ -301,6 +302,7 @@
             overflow: hidden; 
             font-family: 'Roboto', sans-serif; 
             transition: transform 0.3s ease, margin 0.3s ease;
+            flex-shrink: 0;
         }
         #content-scaler { width: 100%; height: 100%; display: flex; transform-origin: top left; }
 
@@ -433,7 +435,7 @@
         .action-list li { width: 100%; margin-bottom: 10px; }
         .action-btn { width: 100%; padding: 12px; text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: all 0.2s; font-family: 'Poppins', sans-serif; }
         .action-btn:hover { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-        .modal-actions { display: flex; gap: 10px; width: 100%; justify-content: center; flex-wrap: margin-top: 20px; }
+        .modal-actions { display: flex; gap: 10px; width: 100%; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
         .img-container-crop { max-width: 100%; max-height: 50vh; overflow: hidden; margin-bottom: 20px; }
         .img-container-crop img { max-width: 100%; }
         

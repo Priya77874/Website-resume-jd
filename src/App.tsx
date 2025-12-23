@@ -739,31 +739,60 @@ const App: React.FC = () => {
 
   const performCrop = () => {
       if(cropperRef.current) {
-          const canvas = cropperRef.current.getCroppedCanvas({width: 300});
+          // Use transparent fill to handle edge cases where crop might exceed image bounds
+          const canvas = cropperRef.current.getCroppedCanvas({
+              width: 300,
+              fillColor: 'transparent'
+          });
           
-          // Automatic Background Removal for Signatures
+          // Force Background Removal for Signatures (Always runs)
           if (cropType === 'signature') {
               const ctx = canvas.getContext('2d', { willReadFrequently: true });
               if (ctx) {
                   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                   const data = imgData.data;
-                  // Iterate over pixels to remove white/light background
+                  
+                  // Contrast enhancement factor to make ink darker and paper whiter before thresholding
+                  const contrast = 1.2; // Increase contrast by 20%
+                  const intercept = 128 * (1 - contrast);
+                  let opaqueCount = 0;
+
                   for (let i = 0; i < data.length; i += 4) {
-                      const r = data[i];
-                      const g = data[i + 1];
-                      const b = data[i + 2];
+                      let r = data[i];
+                      let g = data[i + 1];
+                      let b = data[i + 2];
                       
-                      // Calculate brightness (Luminosity)
-                      // Simply averaging RGB or using luma formula (0.299r + 0.587g + 0.114b) works.
-                      // Simple average is sufficient for paper removal.
-                      const brightness = (r + g + b) / 3;
+                      // Apply contrast
+                      r = r * contrast + intercept;
+                      g = g * contrast + intercept;
+                      b = b * contrast + intercept;
+
+                      // Clamp values
+                      r = Math.min(255, Math.max(0, r));
+                      g = Math.min(255, Math.max(0, g));
+                      b = Math.min(255, Math.max(0, b));
+
+                      // Calculate luminance (perceived brightness)
+                      // Formula: 0.299*R + 0.587*G + 0.114*B
+                      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
                       
-                      // Threshold: If pixel is bright (> 160), make it transparent.
-                      // 160 is roughly 63% brightness, covering white, light grey, and cream paper.
-                      if (brightness > 160) {
-                          data[i + 3] = 0;
+                      // Aggressive threshold for background removal (removes light grey/white/off-white)
+                      // Threshold 150 covers white paper, light grey and shadows.
+                      if (brightness > 150) {
+                          data[i + 3] = 0; // Set Alpha to 0 (Transparent)
+                      } else {
+                          data[i + 3] = 255; // Set Alpha to 255 (Opaque) - Make ink solid
+                          opaqueCount++;
                       }
                   }
+                  
+                  // If result is empty (too much removed)
+                  if (opaqueCount < 50) {
+                      alert("No clear signature detected. Please upload a darker signature on a plain background.");
+                      // Don't close modal, let them try again
+                      return;
+                  }
+                  
                   ctx.putImageData(imgData, 0, 0);
               }
           }
@@ -1566,7 +1595,7 @@ const App: React.FC = () => {
                                 }} />
                               </>
                           ) : (
-                              <input type="text" className="dm-input" value={item} onChange={e => {
+                              <input type="text" className="dm-input" value={item as string} onChange={e => {
                                   const newData = [...localDetails]; newData[i] = e.target.value; setLocalDetails(newData);
                               }} />
                           )}
