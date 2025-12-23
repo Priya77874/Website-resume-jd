@@ -751,45 +751,33 @@ const App: React.FC = () => {
               if (ctx) {
                   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                   const data = imgData.data;
-                  
-                  // Contrast enhancement factor to make ink darker and paper whiter before thresholding
-                  const contrast = 1.2; // Increase contrast by 20%
-                  const intercept = 128 * (1 - contrast);
                   let opaqueCount = 0;
-
+                  
+                  // Iterate over every pixel to remove white/light background
                   for (let i = 0; i < data.length; i += 4) {
-                      let r = data[i];
-                      let g = data[i + 1];
-                      let b = data[i + 2];
+                      const r = data[i];
+                      const g = data[i + 1];
+                      const b = data[i + 2];
                       
-                      // Apply contrast
-                      r = r * contrast + intercept;
-                      g = g * contrast + intercept;
-                      b = b * contrast + intercept;
-
-                      // Clamp values
-                      r = Math.min(255, Math.max(0, r));
-                      g = Math.min(255, Math.max(0, g));
-                      b = Math.min(255, Math.max(0, b));
-
-                      // Calculate luminance (perceived brightness)
+                      // Calculate Perceived Brightness (Luminance)
                       // Formula: 0.299*R + 0.587*G + 0.114*B
                       const brightness = (r * 299 + g * 587 + b * 114) / 1000;
                       
-                      // Aggressive threshold for background removal (removes light grey/white/off-white)
-                      // Threshold 150 covers white paper, light grey and shadows.
+                      // Threshold for background removal
+                      // 150/255 (approx 59%) brightness is a robust cutoff for white/off-white paper
                       if (brightness > 150) {
                           data[i + 3] = 0; // Set Alpha to 0 (Transparent)
                       } else {
-                          data[i + 3] = 255; // Set Alpha to 255 (Opaque) - Make ink solid
+                          // Pixel is dark (ink), keep it opaque
+                          data[i + 3] = 255;
                           opaqueCount++;
                       }
                   }
                   
-                  // If result is empty (too much removed)
-                  if (opaqueCount < 50) {
-                      alert("No clear signature detected. Please upload a darker signature on a plain background.");
-                      // Don't close modal, let them try again
+                  // Check if we found any signature (if too many pixels were removed, image is empty)
+                  // Threshold: 100 pixels (arbitrary small number to detect total blank)
+                  if (opaqueCount < 100) {
+                      alert("No clearly visible signature detected. Please ensure the signature is dark on a light background.");
                       return;
                   }
                   
