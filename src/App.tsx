@@ -752,8 +752,15 @@ const App: React.FC = () => {
                       const r = data[i];
                       const g = data[i + 1];
                       const b = data[i + 2];
-                      // Threshold: If pixel is light gray or white (>190), make it transparent
-                      if (r > 190 && g > 190 && b > 190) {
+                      
+                      // Calculate brightness (Luminosity)
+                      // Simply averaging RGB or using luma formula (0.299r + 0.587g + 0.114b) works.
+                      // Simple average is sufficient for paper removal.
+                      const brightness = (r + g + b) / 3;
+                      
+                      // Threshold: If pixel is bright (> 160), make it transparent.
+                      // 160 is roughly 63% brightness, covering white, light grey, and cream paper.
+                      if (brightness > 160) {
                           data[i + 3] = 0;
                       }
                   }
@@ -1592,7 +1599,7 @@ const App: React.FC = () => {
               <div style={{width:'100%', marginTop:'10px', borderTop:'1px solid #eee', paddingTop:'15px'}}>
                    <div style={{marginBottom:'20px'}}>
                         <label style={{display:'block', marginBottom:'8px', fontSize:'13px', fontWeight:600}}>Target Section</label>
-                        <select className="login-input" style={{padding:'10px'}} value={aiTarget} onChange={(e) => setAiTarget(e.target.value as any)}>
+                        <select className="login-input" style={{padding:'10px'}} value={aiTarget as string} onChange={(e) => setAiTarget(e.target.value as any)}>
                             <option value="objective">Career Objective</option>
                             <option value="techSkills">Technical Skills</option>
                             <option value="softSkills">Soft Skills</option>
