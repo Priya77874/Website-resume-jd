@@ -1571,6 +1571,87 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Contact Actions Modal */}
+      <div className={`modal-overlay ${contactModal ? 'open' : ''}`}>
+          <div className="modal-box" style={{width: '320px'}}>
+              <h3 style={{marginBottom:'15px'}}>{contactModal?.title}</h3>
+              <ul className="action-list">
+                  {contactModal?.actions.map((act, i) => (
+                      <li key={i}>
+                          <button className="action-btn" onClick={act.fn}>
+                              <i className={act.icon}></i> {act.label}
+                          </button>
+                      </li>
+                  ))}
+              </ul>
+              <div className="modal-actions" style={{marginTop:'10px'}}>
+                  <button className="btn btn-cancel" onClick={() => setContactModal(null)}>Cancel</button>
+              </div>
+          </div>
+      </div>
+
+      {/* Details Editor Modal */}
+      <div className={`modal-overlay ${activeModal === 'details' ? 'open' : ''}`}>
+          <div className="modal-box" style={{width: '600px'}}>
+              <h3 style={{marginBottom:'10px', color:'#2c3e50'}}>Edit Points</h3>
+              
+              <div className="dm-tabs">
+                  {['work', 'tech', 'soft', 'lang', 'hobby'].map(t => {
+                      const icons = {
+                          work: 'fa-briefcase',
+                          tech: 'fa-code',
+                          soft: 'fa-comments',
+                          lang: 'fa-language',
+                          hobby: 'fa-palette'
+                      };
+                      const label = t === 'work' ? 'Work Experience' : t === 'tech' ? 'Tech Skills' : t === 'soft' ? 'Soft Skills' : t === 'lang' ? 'Languages' : 'Hobbies';
+                      return (
+                          <div key={t} className={`dm-tab ${dmTab === t ? 'active' : ''}`} onClick={() => switchDmTab(t)}>
+                              <i className={`fa-solid ${icons[t as keyof typeof icons]}`} style={{fontSize:'12px'}}></i> {label}
+                          </div>
+                      );
+                  })}
+              </div>
+
+              <div className="dm-content">
+                  {localDetails.map((item, i) => (
+                      <div className="dm-row" key={i}>
+                          {dmTab === 'work' ? (
+                              <>
+                                <input type="text" className="dm-input" placeholder="Job Title" value={item.title || ''} onChange={e => {
+                                    const newData = [...localDetails]; newData[i].title = e.target.value; setLocalDetails(newData);
+                                }} />
+                                <input type="text" className="dm-input" placeholder="Company" value={item.company || ''} onChange={e => {
+                                    const newData = [...localDetails]; newData[i].company = e.target.value; setLocalDetails(newData);
+                                }} />
+                              </>
+                          ) : (
+                              <input type="text" className="dm-input" value={item as string} onChange={e => {
+                                  const newData = [...localDetails]; newData[i] = e.target.value; setLocalDetails(newData);
+                              }} />
+                          )}
+                          <button className="dm-btn-del" onClick={() => {
+                              const newData = [...localDetails]; newData.splice(i, 1); setLocalDetails(newData);
+                          }}><i className="fa-solid fa-trash"></i></button>
+                      </div>
+                  ))}
+              </div>
+
+              <div className="dm-controls">
+                  <span style={{fontSize:'13px', fontWeight:600}}>Bulk Add:</span>
+                  <select className="dm-select" value={rowsToAdd} onChange={e => setRowsToAdd(parseInt(e.target.value))}>
+                      <option value="1">1</option><option value="3">3</option><option value="5">5</option>
+                  </select>
+                  <button className="btn btn-blue" style={{padding:'6px 10px'}} onClick={addDmRows}><i className="fa-solid fa-plus"></i> Add</button>
+              </div>
+
+              <div className="modal-actions" style={{marginTop:'20px'}}>
+                  <button className="btn btn-cancel" onClick={() => setActiveModal(null)}>Cancel</button>
+                  <button className="btn btn-save" onClick={saveDetails}>Save Changes</button>
+              </div>
+          </div>
+      </div>
+      
       {/* AI Modal */}
       <div className={`modal-overlay ${activeModal === 'ai' ? 'open' : ''}`}>
           <div className="modal-box" style={{width: '600px'}}>
